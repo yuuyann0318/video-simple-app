@@ -1,0 +1,12 @@
+# 認証情報（絶対にGitHubにアップしない）
+credentials.json
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+
+# macOS
+.DS_Store

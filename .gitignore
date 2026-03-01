@@ -2,6 +2,9 @@
 credentials.json
 .streamlit/secrets.toml
 
+# ユーザーデータ（ローカル保存 / 配布先ごとに独立）
+data/
+
 # Python
 __pycache__/
 *.py[cod]

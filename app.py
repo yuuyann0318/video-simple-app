@@ -2,14 +2,14 @@
 動画アップ管理（配布用）
 
 フロー:
-  1. 初回アクセス → ウェルカム画面（名前入力）
-  2. 名前を入力 → URLパラメータ + session_state に保存
-  3. 以降はそのURLをブックマークすれば毎回自動でログイン
-  4. データは "UploadList_{名前}" という独立したシートで完全分離
+  1. 初回アクセス → ブラウザの localStorage にランダムIDを自動生成・保存
+  2. 以降はURLを開くだけで自分のシートが即表示（名前入力・ブックマーク不要）
+  3. データはIDごとに完全分離
 """
 
 import streamlit as st
 from datetime import date, datetime as dt
+from streamlit_javascript import st_javascript
 from utils.sheets import load_data, add_row, update_status, delete_row
 
 st.set_page_config(
@@ -20,110 +20,49 @@ st.set_page_config(
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ユーザー識別：URLパラメータ → session_state に復元
-# ブラウザをリロードしても ?user=名前 が残っていれば自動でログイン状態になる
+# ユーザー識別：localStorage → session_state
+# 同じブラウザで開けば毎回同じシートが自動で表示される
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-if "user" in st.query_params and not st.session_state.get("username"):
-    st.session_state["username"] = st.query_params["user"]
+if not st.session_state.get("username"):
+    uid = st_javascript("""
+    (() => {
+        let uid = localStorage.getItem('video_uid');
+        if (!uid) {
+            const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            uid = Array.from({length: 10},
+                () => c[Math.floor(Math.random() * c.length)]).join('');
+            localStorage.setItem('video_uid', uid);
+        }
+        return uid;
+    })()
+    """)
 
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ウェルカム画面（名前未設定のとき）
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def show_welcome():
-    st.markdown("""
-    <style>
-    /* 背景グラデーション */
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        min-height: 100vh;
-    }
-    [data-testid="stHeader"]  { background: transparent; }
-    [data-testid="stToolbar"] { display: none; }
-
-    /* カード */
-    .wc-wrap {
-        display: flex;
-        justify-content: center;
-        padding-top: 80px;
-    }
-    .wc-card {
-        background: rgba(255,255,255,0.96);
-        border-radius: 28px;
-        padding: 56px 48px 44px;
-        max-width: 420px;
-        width: 100%;
-        box-shadow: 0 32px 96px rgba(0,0,0,0.4);
-        text-align: center;
-    }
-    .wc-icon  { font-size: 4rem; line-height: 1; margin-bottom: 20px; }
-    .wc-title { font-size: 1.9rem; font-weight: 800; color: #1a1a2e; margin-bottom: 10px; }
-    .wc-desc  {
-        font-size: 0.97rem;
-        color: #777;
-        line-height: 1.7;
-        margin-bottom: 36px;
-    }
-    .wc-label {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #444;
-        text-align: left;
-        margin-bottom: 6px;
-    }
-    .wc-note {
-        font-size: 0.78rem;
-        color: #aaa;
-        margin-top: 18px;
-        line-height: 1.5;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    _, col, _ = st.columns([0.5, 3, 0.5])
-    with col:
+    if uid and uid != 0 and isinstance(uid, str):
+        st.session_state["username"] = uid
+        st.rerun()
+    else:
+        # JS実行を待機中（初回レンダリング、通常0.1秒以内）
         st.markdown("""
-        <div class="wc-card">
-            <div class="wc-icon">🎬</div>
-            <div class="wc-title">動画アップ管理</div>
-            <div class="wc-desc">
-                名前を入力すると<br>
-                <strong>あなただけの専用管理シート</strong>が開きます。<br>
-                他の人のデータには一切触れません。
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+        }
+        [data-testid="stHeader"]  { background: transparent; }
+        [data-testid="stToolbar"] { display: none; }
+        </style>
+        <div style="display:flex;justify-content:center;align-items:center;min-height:80vh;">
+            <div style="text-align:center;color:#aaa;">
+                <div style="font-size:3rem;margin-bottom:16px;">🎬</div>
+                <div style="font-size:1rem;letter-spacing:0.05em;">読み込み中...</div>
             </div>
-            <div class="wc-label">あなたの名前</div>
         </div>
         """, unsafe_allow_html=True)
-
-        with st.form("welcome_form"):
-            name = st.text_input(
-                "名前",
-                placeholder="例：田中 / Tanaka",
-                label_visibility="collapsed",
-            )
-            submitted = st.form_submit_button(
-                "　はじめる  →　",
-                use_container_width=True,
-                type="primary",
-            )
-            if submitted:
-                name = name.strip()
-                if not name:
-                    st.warning("名前を入力してください")
-                else:
-                    st.session_state["username"] = name
-                    st.query_params["user"] = name
-                    st.rerun()
-
-        st.markdown("""
-        <div class="wc-note">
-            ※ このURLをブックマークしておくと<br>次回から名前入力なしで開けます
-        </div>
-        """, unsafe_allow_html=True)
+        st.stop()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# メイン画面（名前設定済みのとき）
+# メイン画面
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def show_main(username: str):
 
@@ -212,22 +151,14 @@ def show_main(username: str):
     """, unsafe_allow_html=True)
 
     # ── ヘッダーバー ────────────────────────────────────────────────────────
-    col_h, col_btn = st.columns([5, 1])
-    with col_h:
-        st.markdown(f"""
-        <div class="top-bar">
-            <div>
-                <div class="top-bar-name">🎬 {username} さんの動画管理シート</div>
-                <div class="top-bar-sub">データは完全にあなた専用です</div>
-            </div>
+    st.markdown("""
+    <div class="top-bar">
+        <div>
+            <div class="top-bar-name">🎬 動画管理シート</div>
+            <div class="top-bar-sub">このデバイス専用のシートです</div>
         </div>
-        """, unsafe_allow_html=True)
-    with col_btn:
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        if st.button("名前を変える", use_container_width=True):
-            del st.session_state["username"]
-            st.query_params.clear()
-            st.rerun()
+    </div>
+    """, unsafe_allow_html=True)
 
     # ── 追加フォーム ────────────────────────────────────────────────────────
     st.markdown("#### ➕ 動画を追加する")
@@ -388,10 +319,4 @@ def show_main(username: str):
         render_list(done, "done")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ルーティング
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-if not st.session_state.get("username"):
-    show_welcome()
-else:
-    show_main(st.session_state["username"])
+show_main(st.session_state["username"])

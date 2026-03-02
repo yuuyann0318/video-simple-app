@@ -7,8 +7,8 @@
   3. データはIDごとに完全分離
 """
 
+import uuid
 import streamlit as st
-import streamlit.components.v1 as components
 from datetime import date, datetime as dt
 from utils.sheets import load_data, add_row, update_status, delete_row
 
@@ -23,35 +23,14 @@ st.set_page_config(
 # ユーザー識別：localStorage → session_state
 # 同じブラウザで開けば毎回同じシートが自動で表示される
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-if "user" in st.query_params and not st.session_state.get("username"):
-    st.session_state["username"] = st.query_params["user"]
+# ?user=xxx がなければ自動でランダムIDを付与してリロード
+if "user" not in st.query_params:
+    uid = uuid.uuid4().hex[:10].upper()
+    st.query_params["user"] = uid
+    st.rerun()
 
 if not st.session_state.get("username"):
-    # localStorage からIDを取得し、URLパラメータ経由でStreamlitに渡す
-    # ?user=xxx が付いた状態でリロードされ、上の行で username が確定する
-    components.html("""
-    <script>
-    (function() {
-        try {
-            var uid = localStorage.getItem('video_uid');
-            if (!uid) {
-                var c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                uid = '';
-                for (var i = 0; i < 10; i++) {
-                    uid += c[Math.floor(Math.random() * c.length)];
-                }
-                localStorage.setItem('video_uid', uid);
-            }
-            var url = new URL(window.parent.location.href);
-            if (!url.searchParams.get('user')) {
-                url.searchParams.set('user', uid);
-                window.parent.location.replace(url.toString());
-            }
-        } catch(e) { console.error(e); }
-    })();
-    </script>
-    """, height=0)
-    st.stop()
+    st.session_state["username"] = st.query_params["user"]
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

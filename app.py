@@ -8,8 +8,8 @@
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import date, datetime as dt
-from streamlit_javascript import st_javascript
 from utils.sheets import load_data, add_row, update_status, delete_row
 
 st.set_page_config(
@@ -23,42 +23,35 @@ st.set_page_config(
 # ユーザー識別：localStorage → session_state
 # 同じブラウザで開けば毎回同じシートが自動で表示される
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-if not st.session_state.get("username"):
-    uid = st_javascript("""
-    (() => {
-        let uid = localStorage.getItem('video_uid');
-        if (!uid) {
-            const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            uid = Array.from({length: 10},
-                () => c[Math.floor(Math.random() * c.length)]).join('');
-            localStorage.setItem('video_uid', uid);
-        }
-        return uid;
-    })()
-    """)
+if "user" in st.query_params and not st.session_state.get("username"):
+    st.session_state["username"] = st.query_params["user"]
 
-    if uid and uid != 0 and isinstance(uid, str):
-        st.session_state["username"] = uid
-        st.rerun()
-    else:
-        # JS実行を待機中（初回レンダリング、通常0.1秒以内）
-        st.markdown("""
-        <style>
-        [data-testid="stAppViewContainer"] {
-            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            min-height: 100vh;
-        }
-        [data-testid="stHeader"]  { background: transparent; }
-        [data-testid="stToolbar"] { display: none; }
-        </style>
-        <div style="display:flex;justify-content:center;align-items:center;min-height:80vh;">
-            <div style="text-align:center;color:#aaa;">
-                <div style="font-size:3rem;margin-bottom:16px;">🎬</div>
-                <div style="font-size:1rem;letter-spacing:0.05em;">読み込み中...</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.stop()
+if not st.session_state.get("username"):
+    # localStorage からIDを取得し、URLパラメータ経由でStreamlitに渡す
+    # ?user=xxx が付いた状態でリロードされ、上の行で username が確定する
+    components.html("""
+    <script>
+    (function() {
+        try {
+            var uid = localStorage.getItem('video_uid');
+            if (!uid) {
+                var c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                uid = '';
+                for (var i = 0; i < 10; i++) {
+                    uid += c[Math.floor(Math.random() * c.length)];
+                }
+                localStorage.setItem('video_uid', uid);
+            }
+            var url = new URL(window.parent.location.href);
+            if (!url.searchParams.get('user')) {
+                url.searchParams.set('user', uid);
+                window.parent.location.replace(url.toString());
+            }
+        } catch(e) { console.error(e); }
+    })();
+    </script>
+    """, height=0)
+    st.stop()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

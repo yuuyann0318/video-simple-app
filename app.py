@@ -3,7 +3,7 @@
 
 フロー:
   1. 初回アクセス → ブラウザの localStorage にランダムIDを自動生成・保存
-  2. 以降はURLを開くだけで自分のシートが即表示（名前入力・ブックマーク不要）
+  2. 以降はブックマーク・URLにかかわらず localStorage から同じIDを復元
   3. データはIDごとに完全分離
 """
 
@@ -11,6 +11,7 @@ import uuid
 import streamlit as st
 from datetime import date, datetime as dt
 from utils.sheets import load_data, add_row, update_status, delete_row
+from streamlit_javascript import st_javascript
 
 st.set_page_config(
     page_title="動画アップ管理",
@@ -20,17 +21,35 @@ st.set_page_config(
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ユーザー識別：localStorage → session_state
-# 同じブラウザで開けば毎回同じシートが自動で表示される
+# ユーザー識別：localStorage（永続）→ URLパラメータ（同期用）→ session_state
+# ブックマーク・URLクエリパラメータが消えても localStorage から復元できる
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ?user=xxx がなければ自動でランダムIDを付与してリロード
-if "user" not in st.query_params:
-    uid = uuid.uuid4().hex[:10].upper()
-    st.query_params["user"] = uid
-    st.rerun()
+
+# localStorage からIDを読む（JS初期化前は 0 が返り、実行後に自動再レンダリング）
+_stored = st_javascript("localStorage.getItem('video_user_id') || ''")
+
+if _stored == 0:
+    # JS 初期化中 — 画面は表示しない（JS実行後に自動でリフレッシュされる）
+    st.stop()
+elif _stored:
+    # localStorage にIDがある → そのIDを正とする
+    _uid = _stored
+    if st.query_params.get("user") != _uid:
+        st.query_params["user"] = _uid
+        st.rerun()
+else:
+    # localStorage にIDがない → URLのIDを使うか新規生成
+    if "user" in st.query_params:
+        _uid = st.query_params["user"]
+    else:
+        _uid = uuid.uuid4().hex[:10].upper()
+        st.query_params["user"] = _uid
+        st.rerun()
+    # 次回以降ブックマークなしでも復元できるよう localStorage に保存
+    st_javascript(f"localStorage.setItem('video_user_id', '{_uid}')")
 
 if not st.session_state.get("username"):
-    st.session_state["username"] = st.query_params["user"]
+    st.session_state["username"] = st.query_params.get("user", _uid)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

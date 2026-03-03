@@ -145,6 +145,14 @@ def show_main(username: str):
             value=date.today(),
             format="YYYY/MM/DD",
         )
+        script_url_input = st.text_input(
+            "台本URL",
+            placeholder="https://docs.google.com/...",
+        )
+        material_url_input = st.text_input(
+            "素材フォルダURL",
+            placeholder="https://drive.google.com/...",
+        )
         submitted = st.form_submit_button(
             "✅ 追加する",
             use_container_width=True,
@@ -155,9 +163,11 @@ def show_main(username: str):
                 st.warning("タイトルを入力してください")
             else:
                 add_row(username, {
-                    "タイトル":   title_input.strip(),
-                    "投稿予定日": date_input.strftime("%Y/%m/%d"),
-                    "ステータス": "未投稿",
+                    "タイトル":       title_input.strip(),
+                    "投稿予定日":     date_input.strftime("%Y/%m/%d"),
+                    "ステータス":     "未投稿",
+                    "台本URL":        script_url_input.strip(),
+                    "素材フォルダURL": material_url_input.strip(),
                 })
                 st.success(f"「{title_input.strip()}」を追加しました！")
                 st.rerun()
@@ -230,11 +240,20 @@ def show_main(username: str):
         title  = row.get("タイトル", "—")
         info   = classify(row)
 
+        script_url   = row.get("台本URL", "")
+        material_url = row.get("素材フォルダURL", "")
+        links_html = ""
+        if script_url:
+            links_html += f'<a href="{script_url}" target="_blank" style="font-size:0.8rem;margin-right:12px;color:#4f46e5;">📄 台本</a>'
+        if material_url:
+            links_html += f'<a href="{material_url}" target="_blank" style="font-size:0.8rem;color:#0891b2;">📁 素材フォルダ</a>'
+
         st.markdown(f"""
         <div class="{info['card']}">
             <div class="v-title">{title}</div>
             <div class="v-date">{info['date_label']}</div>
             <span class="badge {info['badge_cls']}">{info['badge']}</span>
+            {"<div style='margin-top:8px;'>" + links_html + "</div>" if links_html else ""}
         </div>
         """, unsafe_allow_html=True)
 

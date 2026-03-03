@@ -21,7 +21,7 @@ from supabase import create_client, Client
 #   SUPABASE_KEY = "eyJhbGciOiJI..."
 
 TABLE   = "videos"
-HEADERS = ["ID", "タイトル", "投稿予定日", "ステータス", "最終更新日時"]
+HEADERS = ["ID", "タイトル", "投稿予定日", "ステータス", "台本URL", "素材フォルダURL", "最終更新日時"]
 
 # DB のカラム名（英語） ↔ DataFrame のカラム名（日本語）
 _COL = {
@@ -29,6 +29,8 @@ _COL = {
     "title":          "タイトル",
     "scheduled_date": "投稿予定日",
     "status":         "ステータス",
+    "script_url":     "台本URL",
+    "material_url":   "素材フォルダURL",
     "updated_at":     "最終更新日時",
 }
 _COL_REV = {v: k for k, v in _COL.items()}
@@ -60,7 +62,7 @@ def load_data(username: str) -> pd.DataFrame:
     resp = (
         _get_client()
         .table(TABLE)
-        .select("id, title, scheduled_date, status, updated_at")
+        .select("id, title, scheduled_date, status, script_url, material_url, updated_at")
         .eq("username", username)
         .order("scheduled_date", desc=False)
         .execute()
@@ -86,7 +88,9 @@ def add_row(username: str, data: dict) -> None:
         "username":       username,
         "title":          str(data.get("タイトル",   "")),
         "scheduled_date": str(data.get("投稿予定日", "")),
-        "status":         str(data.get("ステータス", "未投稿")),
+        "status":         str(data.get("ステータス",    "未投稿")),
+        "script_url":     str(data.get("台本URL",       "")),
+        "material_url":   str(data.get("素材フォルダURL", "")),
         "updated_at":     datetime.now().strftime("%Y/%m/%d %H:%M"),
     }
     _get_client().table(TABLE).insert(record).execute()
